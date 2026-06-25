@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Panel operativo de garantías INEGI para SharePoint, GitHub Pages, DAX, Excel Online y Copilot." />
+  <title>Garantías INEGI · Panel Operativo</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div class="shell" data-view="home">
+    <aside class="rail" aria-label="Navegación principal">
+      <div class="brand">
+        <span class="brand-mark">GI</span>
+        <div>
+          <strong>Garantías</strong>
+          <small>Panel operativo</small>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item is-active" data-route="home">Control</button>
+        <button class="nav-item" data-route="dax">DAX</button>
+        <button class="nav-item" data-route="sync">Sincronizar</button>
+        <button class="nav-item" data-route="copilot">Copilot</button>
+        <button class="nav-item" data-route="config">Config</button>
+      </nav>
+      <div class="rail-foot">
+        <small>Modo</small>
+        <strong id="modeLabel">SharePoint Embed</strong>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Seguimiento ejecutivo</p>
+          <h1>Garantías, SLA, proveedor y cierre operativo</h1>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="openExcelBtn">Abrir Excel</button>
+          <button class="btn ghost" id="openCopilotBtn">Abrir Copilot</button>
+          <button class="btn primary" id="runSyncBtn">Ejecutar sincronización</button>
+        </div>
+      </header>
+
+      <section class="notice" id="runtimeNotice">
+        <strong>Listo para SharePoint.</strong>
+        <span>Este panel no guarda datos personales en GitHub. Para operación real, conecta Power Automate en Config.</span>
+      </section>
+
+      <section class="route is-visible" data-page="home">
+        <div class="grid cards">
+          <article class="card metric">
+            <span>Casos críticos</span>
+            <strong id="metricCritical">0</strong>
+            <small>Garantía vencida / 30D</small>
+          </article>
+          <article class="card metric">
+            <span>Alta prioridad</span>
+            <strong id="metricHigh">0</strong>
+            <small>Proveedor sin cierre</small>
+          </article>
+          <article class="card metric">
+            <span>Internos vencidos</span>
+            <strong id="metricInternal">0</strong>
+            <small>Sin diagnóstico</small>
+          </article>
+          <article class="card metric">
+            <span>Validación dato</span>
+            <strong id="metricDataRisk">0</strong>
+            <small>Tickets o campos a revisar</small>
+          </article>
+        </div>
+
+        <div class="layout-two">
+          <section class="card panel-card">
+            <div class="card-head">
+              <div>
+                <h2>Entrada de datos</h2>
+                <p>Pega aquí el resultado tabular del DAX, CSV o TSV copiado desde Power BI o Excel.</p>
+              </div>
+              <button class="btn small" id="loadSampleBtn">Cargar muestra</button>
+            </div>
+            <textarea id="dataPaste" class="data-paste" spellcheck="false" placeholder="Pega aquí columnas como: ORDEN, PRIORIDAD, BLOQUE OPERATIVO, CODIGO, AÑO, DIAS ABIERTO, DIAS PROVEEDOR, ESTATUS, PROVEEDOR..."></textarea>
+            <div class="row-actions">
+              <button class="btn primary" id="parseDataBtn">Analizar pegado</button>
+              <button class="btn ghost" id="clearDataBtn">Limpiar</button>
+            </div>
+          </section>
+
+          <section class="card panel-card">
+            <div class="card-head">
+              <div>
+                <h2>Prioridad operativa</h2>
+                <p>Vista corta para decidir qué mover hoy.</p>
+              </div>
+              <span class="pill" id="rowCountPill">0 filas</span>
+            </div>
+            <div id="priorityList" class="priority-list empty">
+              Pega datos o carga la muestra para activar el tablero.
+            </div>
+          </section>
+        </div>
+
+        <section class="card panel-card table-card">
+          <div class="card-head">
+            <div>
+              <h2>Casos ordenados</h2>
+              <p>Se muestran los primeros casos por prioridad y días proveedor.</p>
+            </div>
+            <button class="btn small" id="downloadCsvBtn">Descargar CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table id="casesTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="route" data-page="dax">
+        <section class="card panel-card full">
+          <div class="card-head">
+            <div>
+              <h2>DAX operativo</h2>
+              <p>Consulta editable. Corrige nombres reales de tabla/columnas antes de ejecutarla en Power BI.</p>
+            </div>
+            <div class="row-actions compact">
+              <button class="btn small" id="loadDaxBtn">Cargar DAX</button>
+              <button class="btn small primary" id="copyDaxBtn">Copiar DAX</button>
+            </div>
+          </div>
+          <textarea id="daxEditor" class="code-editor" spellcheck="false"></textarea>
+          <div class="hint">
+            Si aparece error tipo “no se encuentra columna”, elimina esa columna del SELECTCOLUMNS o mapea el nombre real del modelo semántico. El panel evita usar PRIORIDAD_NUM como columna física.
+          </div>
+        </section>
+      </section>
+
+      <section class="route" data-page="sync">
+        <div class="layout-two">
+          <section class="card panel-card">
+            <div class="card-head">
+              <div>
+                <h2>Sincronización a Excel SharePoint</h2>
+                <p>El botón manda el DAX y la URL del Excel a un Flow protegido.</p>
+              </div>
+              <span class="status-dot" id="flowStatus">Sin endpoint</span>
+            </div>
+            <div class="sync-box">
+              <label>Workbook destino</label>
+              <input id="excelUrlInput" type="url" />
+              <label>Hoja destino</label>
+              <input id="sheetNameInput" type="text" value="Seguimiento" />
+              <label>Tabla destino</label>
+              <input id="tableNameInput" type="text" value="tblGarantias" />
+              <button class="btn primary wide" id="syncNowBtn">Ejecutar ahora</button>
+            </div>
+            <pre id="syncLog" class="log">Esperando ejecución.</pre>
+          </section>
+
+          <section class="card panel-card">
+            <div class="card-head">
+              <div>
+                <h2>Arquitectura real</h2>
+                <p>GitHub Pages solo presenta interfaz. La ejecución segura vive en Microsoft 365.</p>
+              </div>
+            </div>
+            <ol class="steps">
+              <li>Dashboard en GitHub Pages dentro de SharePoint por iframe.</li>
+              <li>Botón llama Power Automate con endpoint protegido.</li>
+              <li>Flow ejecuta DAX contra Power BI / modelo semántico.</li>
+              <li>Flow escribe resultado en Excel Online de SharePoint mediante Office Script.</li>
+              <li>Copilot queda disponible como copiloto operativo del flujo.</li>
+            </ol>
+          </section>
+        </div>
+      </section>
+
+      <section class="route" data-page="copilot">
+        <section class="card panel-card full copilot-card">
+          <div class="card-head">
+            <div>
+              <h2>Copilot Agent</h2>
+              <p>Se intenta cargar embebido. Si Microsoft bloquea iframe, usa el botón de apertura.</p>
+            </div>
+            <button class="btn primary" id="openCopilotBtn2">Abrir en Microsoft 365</button>
+          </div>
+          <iframe id="copilotFrame" title="Copilot Agent" loading="lazy" referrerpolicy="no-referrer"></iframe>
+        </section>
+      </section>
+
+      <section class="route" data-page="config">
+        <section class="card panel-card full">
+          <div class="card-head">
+            <div>
+              <h2>Configuración local</h2>
+              <p>No guardes tokens en GitHub. El endpoint de Flow se guarda solo en este navegador.</p>
+            </div>
+            <button class="btn small" id="resetConfigBtn">Restaurar</button>
+          </div>
+          <div class="config-grid">
+            <label>URL Excel SharePoint
+              <input id="configExcelUrl" type="url" />
+            </label>
+            <label>URL Copilot Agent
+              <input id="configCopilotUrl" type="url" />
+            </label>
+            <label>Power Automate endpoint
+              <input id="configFlowUrl" type="url" placeholder="https://prod-xx...logic.azure.com/workflows/..." />
+            </label>
+            <label>Clave de dashboard opcional
+              <input id="configFlowKey" type="password" placeholder="No obligatorio. No subir a GitHub." />
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="btn primary" id="saveConfigBtn">Guardar configuración local</button>
+            <button class="btn ghost" id="copyIframeBtn">Copiar iframe SharePoint</button>
+          </div>
+          <pre id="configOutput" class="log">Configuración pendiente.</pre>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

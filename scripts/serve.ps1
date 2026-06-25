@@ -1,0 +1,3 @@
+$ErrorActionPreference = "Stop"
+Write-Host "Levantando servidor local en http://localhost:8080"
+python -m http.server 8080
