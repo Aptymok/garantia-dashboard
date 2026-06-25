@@ -1,134 +1,234 @@
--- Garantías INEGI · Export operativo a Excel SharePoint
--- Sustituye NOMBRE_REAL_DE_TABLA y los nombres de columna entre corchetes por los nombres reales del modelo.
--- Regla: NO usa PRIORIDAD_NUM como columna física. La prioridad se calcula como columna virtual __ORDEN.
-
 EVALUATE
-VAR _Base =
+VAR _Hoy = TODAY ()
+
+VAR _BasePendientes =
     FILTER (
-        'NOMBRE_REAL_DE_TABLA',
-        NOT ISBLANK ( 'NOMBRE_REAL_DE_TABLA'[CODIGO] )
+        'CIAMDA VistaMAIMantenimiento',
+        NOT CONTAINSSTRING (
+            UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[ESTATUS], "" ) ),
+            "CERRADO"
+        )
+            && NOT CONTAINSSTRING (
+                UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[ESTATUS_MAI], "" ) ),
+                "CERRADA"
+            )
     )
-VAR _Scored =
+
+VAR _ConDias =
     ADDCOLUMNS (
-        _Base,
-        "__DIAS_PROVEEDOR_SAFE", COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR], 0 ),
-        "__DIAS_ABIERTO_SAFE", COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO], 0 ),
-        "__ORDEN",
-            VAR _estatus = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[ESTATUS], "" ) )
-            VAR _tipoServicio = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[TIPO SERVICIO], "" ) )
-            VAR _riesgo = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[RIESGO DATO], "" ) )
-            VAR _diasProveedor = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR], 0 )
-            VAR _diasAbierto = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO], 0 )
-            RETURN
-                SWITCH (
-                    TRUE (),
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 30 && _estatus = "PENDIENTE", 1,
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 2 && _estatus = "PENDIENTE", 2,
-                    _tipoServicio = "INTERNO" && _diasAbierto >= 7 && _estatus = "REVISION", 3,
-                    _riesgo <> "" && _riesgo <> "OK", 4,
-                    5
+        _BasePendientes,
+
+        "DIAS_ABIERTO",
+            DATEDIFF (
+                'CIAMDA VistaMAIMantenimiento'[FECHA SOLICITUD],
+                _Hoy,
+                DAY
+            ),
+
+        "DIAS_PROVEEDOR",
+            IF (
+                NOT ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR] ),
+                DATEDIFF (
+                    'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR],
+                    _Hoy,
+                    DAY
                 ),
-        "__PRIORIDAD",
-            VAR _tipoServicio = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[TIPO SERVICIO], "" ) )
-            VAR _estatus = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[ESTATUS], "" ) )
-            VAR _diasProveedor = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR], 0 )
-            VAR _diasAbierto = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO], 0 )
-            RETURN
-                SWITCH (
-                    TRUE (),
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 30 && _estatus = "PENDIENTE", "CRITICA",
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 2 && _estatus = "PENDIENTE", "ALTA",
-                    _tipoServicio = "INTERNO" && _diasAbierto >= 7 && _estatus = "REVISION", "ALTA INTERNA",
-                    "NORMAL"
-                ),
-        "__BLOQUE_OPERATIVO",
-            VAR _tipoServicio = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[TIPO SERVICIO], "" ) )
-            VAR _estatus = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[ESTATUS], "" ) )
-            VAR _diasProveedor = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR], 0 )
-            VAR _diasAbierto = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO], 0 )
-            RETURN
-                SWITCH (
-                    TRUE (),
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 30 && _estatus = "PENDIENTE", "CRITICO 30D / GARANTIA VENCIDA",
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 2 && _estatus = "PENDIENTE", "CRITICO 24H / PROVEEDOR SIN CIERRE",
-                    _tipoServicio = "INTERNO" && _diasAbierto >= 7 && _estatus = "REVISION", "INTERNO VENCIDO / SIN DIAGNOSTICO",
-                    "SEGUIMIENTO ORDINARIO"
-                ),
-        "__ACCION_RECOMENDADA",
-            VAR _tipoServicio = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[TIPO SERVICIO], "" ) )
-            VAR _estatus = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[ESTATUS], "" ) )
-            VAR _diasProveedor = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR], 0 )
-            VAR _diasAbierto = COALESCE ( 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO], 0 )
-            RETURN
-                SWITCH (
-                    TRUE (),
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 30 && _estatus = "PENDIENTE", "Revisar contrato/SLA. Preparar escalamiento por vencimiento de 30 dias, sustitucion o penalizacion preliminar.",
-                    _tipoServicio = "CON GARANTÍA" && _diasProveedor >= 2 && _estatus = "PENDIENTE", "Escalar con proveedor. Solicitar respuesta formal, guia, reparacion, sustitucion o fecha compromiso.",
-                    _tipoServicio = "INTERNO" && _diasAbierto >= 7 && _estatus = "REVISION", "Solicitar diagnostico al tecnico asignado o depurar causa de falta de avance.",
-                    "Continuar seguimiento ordinario."
-                ),
-        "__RIESGO_DATO",
-            VAR _seguimiento = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[SEGUIMIENTO], "" ) )
-            VAR _serie = UPPER ( COALESCE ( 'NOMBRE_REAL_DE_TABLA'[SERIE], "" ) )
-            VAR _ticketVacio = CONTAINSSTRING ( _seguimiento, "TICKET:" ) && NOT CONTAINSSTRING ( _seguimiento, "TICKET: 0" ) && RIGHT ( TRIM ( _seguimiento ), 7 ) = "TICKET:"
-            RETURN
-                SWITCH (
-                    TRUE (),
-                    ISBLANK ( 'NOMBRE_REAL_DE_TABLA'[CODIGO] ), "VALIDAR CODIGO",
-                    ISBLANK ( 'NOMBRE_REAL_DE_TABLA'[AÑO] ), "VALIDAR AÑO",
-                    _serie = "" || _serie = "INDICAR SERIE", "VALIDAR SERIE",
-                    _ticketVacio, "VALIDAR NUMERO DE TICKET",
-                    "OK"
-                )
+                BLANK ()
+            )
     )
+
+VAR _ConPrioridad =
+    ADDCOLUMNS (
+        _ConDias,
+
+        "PRIORIDAD_NUM",
+            SWITCH (
+                TRUE (),
+
+                NOT ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR] )
+                    && ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA ENTREGA] )
+                    && [DIAS_PROVEEDOR] > 30,
+                    1,
+
+                NOT ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR] )
+                    && ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA ENTREGA] )
+                    && [DIAS_PROVEEDOR] > 1,
+                    2,
+
+                ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA DIAGNOSTICO] )
+                    && [DIAS_ABIERTO] > 5,
+                    3,
+
+                [DIAS_ABIERTO] > 30,
+                    4,
+
+                5
+            )
+    )
+
+VAR _Salida =
+    ADDCOLUMNS (
+        _ConPrioridad,
+
+        "PRIORIDAD_TXT",
+            SWITCH (
+                TRUE (),
+                [PRIORIDAD_NUM] = 1, "CRITICA",
+                [PRIORIDAD_NUM] = 2, "ALTA",
+                [PRIORIDAD_NUM] = 3, "ALTA INTERNA",
+                [PRIORIDAD_NUM] = 4, "DEPURAR",
+                "NORMAL"
+            ),
+
+        "BLOQUE_OPERATIVO",
+            SWITCH (
+                TRUE (),
+
+                [PRIORIDAD_NUM] = 1,
+                    "CRITICO 30D / GARANTIA VENCIDA",
+
+                [PRIORIDAD_NUM] = 2,
+                    "CRITICO 24H / PROVEEDOR SIN CIERRE",
+
+                CONTAINSSTRING (
+                    UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                    "NO FACILITO"
+                )
+                    || CONTAINSSTRING (
+                        UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                        "NO SE HA RECIBIDO RESPUESTA"
+                    )
+                    || CONTAINSSTRING (
+                        UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                        "A PRUEBA"
+                    ),
+                    "PENDIENTE USUARIO / VALIDAR CIERRE",
+
+                [PRIORIDAD_NUM] = 3,
+                    "INTERNO VENCIDO / SIN DIAGNOSTICO",
+
+                [PRIORIDAD_NUM] = 4,
+                    "DEPURACION HISTORICA",
+
+                NOT ISBLANK ( 'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR] ),
+                    "GARANTIA EN CURSO",
+
+                "SEGUIMIENTO ORDINARIO"
+            ),
+
+        "ACCION_RECOMENDADA",
+            SWITCH (
+                TRUE (),
+
+                [PRIORIDAD_NUM] = 1,
+                    "Revisar contrato/SLA. Preparar escalamiento por vencimiento de 30 dias, sustitucion o penalizacion preliminar.",
+
+                [PRIORIDAD_NUM] = 2,
+                    "Escalar con proveedor. Solicitar respuesta formal, guia, reparacion, sustitucion o fecha compromiso.",
+
+                CONTAINSSTRING (
+                    UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                    "A PRUEBA"
+                ),
+                    "Contactar usuario. Confirmar funcionamiento y cerrar si procede.",
+
+                [PRIORIDAD_NUM] = 3,
+                    "Solicitar diagnostico al tecnico asignado o depurar causa de falta de avance.",
+
+                [PRIORIDAD_NUM] = 4,
+                    "Validar si el caso debe cerrarse, corregirse o reclasificarse como historico.",
+
+                "Continuar seguimiento ordinario."
+            ),
+
+        "RIESGO_DATO",
+            SWITCH (
+                TRUE (),
+
+                CONTAINSSTRING (
+                    UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                    "TICKET: ;"
+                )
+                    || CONTAINSSTRING (
+                        UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                        "TICKET:"
+                    )
+                        && CONTAINSSTRING (
+                            UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                            "GENERANDO EL TICKET:"
+                        )
+                        && LEN (
+                            TRIM (
+                                SUBSTITUTE (
+                                    UPPER ( COALESCE ( 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO], "" ) ),
+                                    "GENERANDO EL TICKET:",
+                                    ""
+                                )
+                            )
+                        ) = 0,
+                    "VALIDAR NUMERO DE TICKET",
+
+                "OK"
+            )
+    )
+
 RETURN
 SELECTCOLUMNS (
-    _Scored,
-    "ORDEN", [__ORDEN],
-    "PRIORIDAD", [__PRIORIDAD],
-    "BLOQUE OPERATIVO", [__BLOQUE_OPERATIVO],
-    "ACCION RECOMENDADA", [__ACCION_RECOMENDADA],
-    "RIESGO DATO", [__RIESGO_DATO],
-    "CODIGO", 'NOMBRE_REAL_DE_TABLA'[CODIGO],
-    "AÑO", 'NOMBRE_REAL_DE_TABLA'[AÑO],
-    "URL REPORTE", 'NOMBRE_REAL_DE_TABLA'[URL REPORTE],
-    "DIAS ABIERTO", 'NOMBRE_REAL_DE_TABLA'[DIAS ABIERTO],
-    "DIAS PROVEEDOR", 'NOMBRE_REAL_DE_TABLA'[DIAS PROVEEDOR],
-    "ESTATUS", 'NOMBRE_REAL_DE_TABLA'[ESTATUS],
-    "ESTATUS_MAI", 'NOMBRE_REAL_DE_TABLA'[ESTATUS_MAI],
-    "DESCRIP STATUS", 'NOMBRE_REAL_DE_TABLA'[DESCRIP STATUS],
-    "FECHA SOLICITUD", 'NOMBRE_REAL_DE_TABLA'[FECHA SOLICITUD],
-    "FECHA INICIO SERVICIO", 'NOMBRE_REAL_DE_TABLA'[FECHA INICIO SERVICIO],
-    "FECHA RECEPCION EQUIPO", 'NOMBRE_REAL_DE_TABLA'[FECHA RECEPCION EQUIPO],
-    "FECHA DIAGNOSTICO", 'NOMBRE_REAL_DE_TABLA'[FECHA DIAGNOSTICO],
-    "FECHA REPORTE PROVEEDOR", 'NOMBRE_REAL_DE_TABLA'[FECHA REPORTE PROVEEDOR],
-    "FECHA EQUIPO REPARADO O RESPALDO", 'NOMBRE_REAL_DE_TABLA'[FECHA EQUIPO REPARADO O RESPALDO],
-    "FECHA ENTREGA", 'NOMBRE_REAL_DE_TABLA'[FECHA ENTREGA],
-    "PROVEEDOR", 'NOMBRE_REAL_DE_TABLA'[PROVEEDOR],
-    "CONTRATO", 'NOMBRE_REAL_DE_TABLA'[CONTRATO],
-    "CLIENTE", 'NOMBRE_REAL_DE_TABLA'[CLIENTE],
-    "E-MAIL", 'NOMBRE_REAL_DE_TABLA'[E-MAIL],
-    "EXTENSION", 'NOMBRE_REAL_DE_TABLA'[EXTENSION],
-    "ENTIDAD", 'NOMBRE_REAL_DE_TABLA'[ENTIDAD],
-    "AREA", 'NOMBRE_REAL_DE_TABLA'[AREA],
-    "ADSCRIPCION", 'NOMBRE_REAL_DE_TABLA'[ADSCRIPCION],
-    "TIPO SERVICIO", 'NOMBRE_REAL_DE_TABLA'[TIPO SERVICIO],
-    "TIPO EQUIPO", 'NOMBRE_REAL_DE_TABLA'[TIPO EQUIPO],
-    "MARCA", 'NOMBRE_REAL_DE_TABLA'[MARCA],
-    "MODELO", 'NOMBRE_REAL_DE_TABLA'[MODELO],
-    "SERIE", 'NOMBRE_REAL_DE_TABLA'[SERIE],
-    "SERIE CPU PERIFERICO", 'NOMBRE_REAL_DE_TABLA'[SERIE CPU PERIFERICO],
-    "INVENTARIO", 'NOMBRE_REAL_DE_TABLA'[INVENTARIO],
-    "ESTADO FISICO", 'NOMBRE_REAL_DE_TABLA'[ESTADO FISICO],
-    "FALLA REPORTADA", 'NOMBRE_REAL_DE_TABLA'[FALLA REPORTADA],
-    "SOLUCION", 'NOMBRE_REAL_DE_TABLA'[SOLUCION],
-    "OBSERVACIONES", 'NOMBRE_REAL_DE_TABLA'[OBSERVACIONES],
-    "SEGUIMIENTO", 'NOMBRE_REAL_DE_TABLA'[SEGUIMIENTO],
-    "ATENDIDO POR", 'NOMBRE_REAL_DE_TABLA'[ATENDIDO POR],
-    "ASIGNADO A", 'NOMBRE_REAL_DE_TABLA'[ASIGNADO A]
+    _Salida,
+
+    "ORDEN", [PRIORIDAD_NUM],
+    "PRIORIDAD", [PRIORIDAD_TXT],
+    "BLOQUE OPERATIVO", [BLOQUE_OPERATIVO],
+    "ACCION RECOMENDADA", [ACCION_RECOMENDADA],
+    "RIESGO DATO", [RIESGO_DATO],
+
+    "CODIGO", 'CIAMDA VistaMAIMantenimiento'[CODIGO],
+    "AÑO", 'CIAMDA VistaMAIMantenimiento'[AÑO],
+    "URL REPORTE", 'CIAMDA VistaMAIMantenimiento'[Reporte impreso],
+
+    "DIAS ABIERTO", [DIAS_ABIERTO],
+    "DIAS PROVEEDOR", [DIAS_PROVEEDOR],
+
+    "ESTATUS", 'CIAMDA VistaMAIMantenimiento'[ESTATUS],
+    "ESTATUS_MAI", 'CIAMDA VistaMAIMantenimiento'[ESTATUS_MAI],
+    "DESCRIP STATUS", 'CIAMDA VistaMAIMantenimiento'[descrip status],
+
+    "FECHA SOLICITUD", 'CIAMDA VistaMAIMantenimiento'[FECHA SOLICITUD],
+    "FECHA INICIO SERVICIO", 'CIAMDA VistaMAIMantenimiento'[FECHA INICIO SERVICIO],
+    "FECHA RECEPCION EQUIPO", 'CIAMDA VistaMAIMantenimiento'[FECHA RECEPCION EQUIPO],
+    "FECHA DIAGNOSTICO", 'CIAMDA VistaMAIMantenimiento'[FECHA DIAGNOSTICO],
+    "FECHA REPORTE PROVEEDOR", 'CIAMDA VistaMAIMantenimiento'[FECHA REPORTE AL PROVEEDOR],
+    "FECHA EQUIPO REPARADO O RESPALDO", 'CIAMDA VistaMAIMantenimiento'[FECHA EQUIPO REPARADO],
+    "FECHA ENTREGA", 'CIAMDA VistaMAIMantenimiento'[FECHA ENTREGA],
+
+    "PROVEEDOR", 'CIAMDA VistaMAIMantenimiento'[PROVEEDOR],
+    "CONTRATO", 'CIAMDA VistaMAIMantenimiento'[CONTRATO],
+    "CLIENTE", 'CIAMDA VistaMAIMantenimiento'[CLIENTE],
+    "E-MAIL", 'CIAMDA VistaMAIMantenimiento'[E-MAIL],
+    "EXTENSION", 'CIAMDA VistaMAIMantenimiento'[EXTENSION],
+    "ENTIDAD", 'CIAMDA VistaMAIMantenimiento'[ENTIDAD],
+    "AREA", 'CIAMDA VistaMAIMantenimiento'[AREA],
+    "ADSCRIPCION", 'CIAMDA VistaMAIMantenimiento'[ADSCRIPCION],
+
+    "TIPO SERVICIO", 'CIAMDA VistaMAIMantenimiento'[TIPO SERVICIO],
+    "TIPO EQUIPO", 'CIAMDA VistaMAIMantenimiento'[TIPO EQUIPO],
+    "MARCA", 'CIAMDA VistaMAIMantenimiento'[MARCA],
+    "MODELO", 'CIAMDA VistaMAIMantenimiento'[MODELO],
+    "SERIE", 'CIAMDA VistaMAIMantenimiento'[SERIE],
+    "SERIE CPU PERIFERICO", 'CIAMDA VistaMAIMantenimiento'[SERIE CPU PERIFERICO],
+    "INVENTARIO", 'CIAMDA VistaMAIMantenimiento'[INVENTARIO],
+    "ESTADO FISICO", 'CIAMDA VistaMAIMantenimiento'[ESTADO FISICO],
+
+    "FALLA REPORTADA", 'CIAMDA VistaMAIMantenimiento'[FALLA REPORTADA],
+    "SOLUCION", 'CIAMDA VistaMAIMantenimiento'[SOLUCION],
+    "OBSERVACIONES", 'CIAMDA VistaMAIMantenimiento'[OBSERVACIONES],
+    "SEGUIMIENTO", 'CIAMDA VistaMAIMantenimiento'[SEGUIMIENTO],
+
+    "ATENDIDO POR", 'CIAMDA VistaMAIMantenimiento'[ATENDIDO POR],
+    "ASIGNADO A", 'CIAMDA VistaMAIMantenimiento'[ASIGNADO A]
 )
 ORDER BY
     [ORDEN] ASC,
     [DIAS PROVEEDOR] DESC,
     [DIAS ABIERTO] DESC,
-    [CODIGO] ASC
+    [FECHA SOLICITUD] ASC
