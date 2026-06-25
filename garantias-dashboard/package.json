@@ -1,0 +1,9 @@
+{
+  "name": "garantias-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "serve": "python -m http.server 8080",
+    "validate": "node scripts/validate.mjs"
+  }
+}
